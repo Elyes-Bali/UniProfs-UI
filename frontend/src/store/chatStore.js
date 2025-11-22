@@ -32,6 +32,12 @@ export const useChatStore = create((set, get) => ({
   // Actions to set the state
   setIsLoading: (value) => set({ isLoading: value }),
   setError: (value) => set({ error: value }),
+  /**
+   * Directly replaces the messages array.
+   * This was missing and caused the TypeError in handleAnswerQuestion.
+   * @param {Array} newMessages - The new array of messages.
+   */
+  setMessages: (newMessages) => set({ messages: newMessages }), // <-- FIX: ADDED MISSING ACTION
 
   /**
    * Adds a new message to the conversation history.
@@ -86,14 +92,23 @@ export const useChatStore = create((set, get) => ({
       if (file) formData.append("file", file);
       else formData.append("prompt", userMessage.content);
 
+      // Using exponential backoff for API calls
       const url = `${API_BASE_URL}/study/start`;
+      let response;
+      let delay = 1000;
+      const maxRetries = 3;
 
-      const response = await fetch(url, {
-        method: "POST",
-        body: formData
-      });
+      for (let i = 0; i < maxRetries; i++) {
+          response = await fetch(url, { method: "POST", body: formData });
+          if (response.ok) break;
+          if (i < maxRetries - 1) {
+              await new Promise(resolve => setTimeout(resolve, delay));
+              delay *= 2;
+          } else {
+              throw new Error("Failed to get response from backend after retries.");
+          }
+      }
 
-      if (!response.ok) throw new Error("Failed to get response from backend");
       const data = await response.json();
 
       // 2️⃣ Add bot response (first question)
@@ -132,6 +147,7 @@ export const useChatStore = create((set, get) => ({
    * @param {string} input - The user's answer text.
    */
   handleAnswerQuestion: async (input) => {
+    // setMessages is now defined on the store and available via get()
     const { messages, setMessages, addMessage, setIsLoading, setError, sessionId, processAnswerSubmission } = get();
 
     if (!input.trim()) return;
@@ -153,17 +169,31 @@ export const useChatStore = create((set, get) => ({
     try {
       // 2. Call backend API
       const url = `${API_BASE_URL}/study/answer`;
-
-      const response = await fetch(url, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
+      const bodyPayload = JSON.stringify({
           sessionId: sessionId,
           answer: input.trim(),
-        }),
       });
 
-      if (!response.ok) throw new Error("Failed to get response from backend");
+      // Using exponential backoff for API calls
+      let response;
+      let delay = 1000;
+      const maxRetries = 3;
+
+      for (let i = 0; i < maxRetries; i++) {
+          response = await fetch(url, {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: bodyPayload,
+          });
+          if (response.ok) break;
+          if (i < maxRetries - 1) {
+              await new Promise(resolve => setTimeout(resolve, delay));
+              delay *= 2;
+          } else {
+              throw new Error("Failed to get response from backend after retries.");
+          }
+      }
+
       const data = await response.json();
 
       // 3. Add correction message from bot
