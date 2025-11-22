@@ -6,10 +6,7 @@ const API_URL =
     ? "http://localhost:5000/api/auth"
     : "/api/auth";
 
-const API_Sign =
-  import.meta.env.MODE === "development"
-    ? "http://localhost:5000/api/auth"
-    : "https://uniprofs-ui.onrender.com/api/auth";    
+ 
 
 axios.defaults.withCredentials = true;
 
@@ -26,7 +23,7 @@ setUser: (userData) => set({ user: userData }),
   signup: async (email, password, name) => {
     set({ isLoading: true, error: null });
     try {
-      const response = await axios.post(`${API_Sign}/signup`, {
+      const response = await axios.post(`${API_URL}/signup`, {
         email,
         password,
         name,
