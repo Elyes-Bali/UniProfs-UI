@@ -93,8 +93,8 @@ import {
 } from "./emailTemplates.js";
 import { transporter } from "./transporter.js";
 
-const SENDER_NAME = "Elyes";
-const SENDER_EMAIL = "noreply@mailtrap.email"; // Mailtrap sender
+const SENDER_NAME = "UniProfs AI";
+const SENDER_EMAIL = "heallinkteam@gmail.com"; // Mailtrap sender
 
 export const sendVerificationEmail = async (email, verificationToken) => {
   try {

@@ -2,6 +2,7 @@ import React, { useState, useRef, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Send, Upload, FileText, User, Bot, Loader2, MessageSquare } from 'lucide-react';
 import { useChatStore } from '../store/chatStore';
+import NavBar from '../components/NavBar';
 // import NavBar from '../components/NavBar'; // Removed due to resolution error in current context
 
 
@@ -135,6 +136,7 @@ const ChatPage = () => {
 
   return (
     <>
+    <NavBar/>
     {/* NavBar component removed */}
     <div className="min-h-screen bg-gray-50 flex flex-col font-sans antialiased p-0 sm:p-4">
       <motion.div
