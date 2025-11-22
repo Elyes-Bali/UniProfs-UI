@@ -132,8 +132,9 @@ export const sendWelcomeEmail = async (email, name) => {
   try {
     const htmlContent = WELCOME_EMAIL_TEMPLATE.replace("{name}", name);
     await transporter.sendMail({
-      from: `"${SENDER_NAME}" <${SENDER_EMAIL}>`,
+      from: process.env.SENDGRID_VERIFIED_SENDER,
       to: email,
+
       subject: "Welcome to UniProfs AI",
       html: htmlContent,
     });
@@ -147,7 +148,7 @@ export const sendWelcomeEmail = async (email, name) => {
 export const sendPasswordResetEmail = async (email, resetURL) => {
   try {
     await transporter.sendMail({
-      from: `"${SENDER_NAME}" <${SENDER_EMAIL}>`,
+      from: process.env.SENDGRID_VERIFIED_SENDER,
       to: email,
       subject: "Reset your password",
       html: PASSWORD_RESET_REQUEST_TEMPLATE.replace("{resetURL}", resetURL),
@@ -162,7 +163,7 @@ export const sendPasswordResetEmail = async (email, resetURL) => {
 export const sendResetSuccessEmail = async (email) => {
   try {
     await transporter.sendMail({
-      from: `"${SENDER_NAME}" <${SENDER_EMAIL}>`,
+      from: process.env.SENDGRID_VERIFIED_SENDER,
       to: email,
       subject: "Password Reset Successful",
       html: PASSWORD_RESET_SUCCESS_TEMPLATE,
