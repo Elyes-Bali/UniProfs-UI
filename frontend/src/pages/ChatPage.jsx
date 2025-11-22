@@ -1,37 +1,18 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Send, Upload, FileText, User, Bot, Loader2, MessageSquare } from 'lucide-react';
-import NavBar from '../components/NavBar';
+import { useChatStore } from '../store/chatStore';
+// import NavBar from '../components/NavBar'; // Removed due to resolution error in current context
+
 
 // --- CONFIGURATION & MOCK DATA ---
 const BOT_NAME = "Insight Tutor";
 const USER_ID = "You";
-const SYSTEM_PROMPT = "How can I help you today? You can send a prompt or upload a PDF for a guided study session.";
-
-// Mock conversation flow for demonstration
-const mockConversation = [
-  { id: 1, sender: 'bot', type: 'text', content: SYSTEM_PROMPT, timestamp: '10:00 AM' },
-];
-
-// Mock PDF processing flow
-const pdfMockResponse = [
-  "I've analyzed the document 'Introduction to Calculus'. Let's start the guided study.",
-  "Question 1: Based on the introduction, what is the fundamental difference between differential and integral calculus?",
-];
-// Mock math prompt flow
-const mathMockResponse = [
-  "Great! Let's test your math skills.",
-  "Question 1: What is the derivative of $f(x) = x^3 + 2x - 1$?",
-];
-// Mock follow-up question
-const followUpMockResponse = [
-  "That's a good start. Question 2: Can you explain the geometric interpretation of the derivative you just calculated?",
-];
 
 // --- UTILITY COMPONENTS ---
 
 /**
- * Animated Message Bubble Component (Defined externally for standard practice)
+ * Animated Message Bubble Component
  */
 const MessageBubble = ({ message }) => {
   const isBot = message.sender === 'bot';
@@ -54,8 +35,9 @@ const MessageBubble = ({ message }) => {
     <div className="flex items-center space-x-3 p-3 bg-white/70 text-gray-800 rounded-xl border border-gray-300">
       <FileText className="text-indigo-600" size={24} />
       <div>
-        <p className="font-semibold">{message.fileName}</p>
-        <p className="text-sm text-gray-500">{message.content}</p>
+        {/* Changed from message.fileName to message.content if file type message is used */}
+        <p className="font-semibold">{message.content.includes("Uploaded file:") ? message.content.replace("Uploaded file: ", "") : message.content}</p>
+        <p className="text-sm text-gray-500">Document ready.</p>
       </div>
     </div>
   ) : (
@@ -85,12 +67,25 @@ const MessageBubble = ({ message }) => {
   );
 };
 
+
 const ChatPage = () => {
- const [messages, setMessages] = useState(mockConversation);
+  // --- Local State for Input Control ---
   const [input, setInput] = useState('');
   const [file, setFile] = useState(null);
-  const [isLoading, setIsLoading] = useState(false);
+
+  // --- Global State and Actions from Store ---
+  const {
+    messages,
+    isLoading,
+    handleSendMessage,
+    handleAnswerQuestion,
+    error,
+  } = useChatStore();
+
   const chatEndRef = useRef(null);
+
+  // Derived state to check if the bot is waiting for an answer
+  const isWaiting = messages.some(msg => msg.isWaitingForResponse);
 
   const scrollToBottom = () => {
     chatEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -101,174 +96,31 @@ const ChatPage = () => {
     scrollToBottom();
   }, [messages]);
 
-  // Simulate server response and guided flow
-const handleSendMessage = async () => {
-  if ((!input.trim() && !file) || isLoading) return;
+  // Handle the main form submission logic
+  const handleSubmit = (e) => {
+    e.preventDefault();
 
-  const currentTime = new Date().toLocaleTimeString('en-US', {
-    hour: '2-digit',
-    minute: '2-digit'
-  });
+    if (isLoading || (!input.trim() && !file)) return;
 
-  // 1️⃣ Add user message to chat
-  const userMessage = {
-    id: Date.now(),
-    sender: 'user',
-    type: 'text',
-    content: input.trim() || `Uploaded file: ${file.name}`,
-    timestamp: currentTime,
+    if (isWaiting) {
+      // User is answering a question
+      handleAnswerQuestion(input);
+    } else {
+      // User is starting a new session (prompt or file)
+      // Pass the original input (which might just be the file name text) and the file object
+      handleSendMessage(input, file);
+      setFile(null); // Clear file state after sending to store
+    }
+
+    // Clear input field after submission if not uploading a file
+    // If a file was selected, the store logic will clear the file state, but we keep input if it was just the file name
+    if (!file) {
+      setInput('');
+    } else if (file && isWaiting) {
+      // If we are answering, clear input regardless of file state
+      setInput('');
+    }
   };
-
-  setMessages(prev => [...prev, userMessage]);
-  setInput('');
-  setIsLoading(true);
-
-  try {
-    const formData = new FormData();
-    const sessionId = "unique-session-id"; // Use a real unique id per session
-    formData.append("sessionId", sessionId);
-    if (file) formData.append("file", file);
-    else formData.append("prompt", userMessage.content);
-
-    const response = await fetch("http://localhost:5000/study/start", {
-      method: "POST",
-      body: formData
-    });
-
-    if (!response.ok) throw new Error("Failed to get response from backend");
-    const data = await response.json();
-
-    // 2️⃣ Add bot response (first question)
-    const botMessage = {
-      id: Date.now() + 1,
-      sender: 'bot',
-      type: 'question',
-      content: data.question,
-      isWaitingForResponse: true,
-      timestamp: new Date().toLocaleTimeString('en-US', {
-        hour: '2-digit',
-        minute: '2-digit'
-      }),
-    };
-
-    setMessages(prev => [...prev, botMessage]);
-    setFile(null); // clear file after sending
-
-  } catch (err) {
-    console.error("Error starting session:", err);
-    setMessages(prev => [
-      ...prev,
-      {
-        id: Date.now() + 2,
-        sender: 'bot',
-        type: 'text',
-        content: "❌ Failed to start session. Try again.",
-        timestamp: new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' }),
-      }
-    ]);
-  } finally {
-    setIsLoading(false);
-  }
-};
-
-
-  // Simulate user answering a question and receiving the next
-const handleAnswerQuestion = async () => {
-  if (!input.trim() || isLoading) return;
-
-  const currentTime = new Date().toLocaleTimeString('en-US', {
-    hour: '2-digit',
-    minute: '2-digit'
-  });
-
-  // 1. Add user answer to chat
-  const userAnswer = {
-    id: Date.now(),
-    sender: 'user',
-    type: 'text',
-    content: input.trim(),
-    timestamp: currentTime,
-  };
-
-  setInput('');
-  setIsLoading(true);
-
-  // Remove waiting flag from previous bot question and append user answer
-  setMessages(prev => {
-    const updatedMessages = prev.map(msg =>
-      msg.isWaitingForResponse ? { ...msg, isWaitingForResponse: false } : msg
-    );
-    return [...updatedMessages, userAnswer];
-  });
-
-  try {
-    // 2. Call backend API
-    const response = await fetch("http://localhost:5000/study/answer", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        sessionId: "unique-session-id", // replace with dynamic session if necessary
-        answer: input.trim(),
-      }),
-    });
-
-    if (!response.ok) throw new Error("Failed to get response from backend");
-    const data = await response.json();
-
-    // 3. Add correction message from bot
-    setMessages(prev => [
-      ...prev,
-      {
-        id: Date.now() + 1,
-        sender: 'bot',
-        type: 'text',
-        content: data.correction,
-        timestamp: new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' }),
-      },
-    ]);
-
-    // 4. Add next question
-    setMessages(prev => [
-      ...prev,
-      {
-        id: Date.now() + 2,
-        sender: 'bot',
-        type: 'question',
-        content: data.question,
-        isWaitingForResponse: true,
-        timestamp: new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' }),
-      },
-    ]);
-
-  } catch (error) {
-    console.error("Error submitting answer:", error);
-
-    setMessages(prev => [
-      ...prev,
-      {
-        id: Date.now() + 1,
-        sender: 'bot',
-        type: 'text',
-        content: "❌ An error occurred. Please try again.",
-        timestamp: new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' }),
-      },
-    ]);
-  } finally {
-    setIsLoading(false);
-  }
-};
-
-
-  const isWaiting = messages.some(msg => msg.isWaitingForResponse);
-
-const handleSubmit = (e) => {
-  e.preventDefault();
-  const isWaiting = messages.some(msg => msg.isWaitingForResponse);
-
-  if (isWaiting) handleAnswerQuestion();
-  else handleSendMessage();
-};
-
 
 
   const handleFileChange = (e) => {
@@ -283,8 +135,7 @@ const handleSubmit = (e) => {
 
   return (
     <>
-    <NavBar />{" "}
-  
+    {/* NavBar component removed */}
     <div className="min-h-screen bg-gray-50 flex flex-col font-sans antialiased p-0 sm:p-4">
       <motion.div
         initial={{ opacity: 0, y: 20 }}
@@ -296,7 +147,6 @@ const handleSubmit = (e) => {
         {/* Header */}
         <header className="p-4 sm:p-6 bg-white border-b border-gray-200 sticky top-0 z-10 shadow-md">
           <div className="flex items-center space-x-3">
-            {/* FIX: Changed type to "tween" to allow multiple keyframes for the wobble effect */}
             <motion.div
               animate={{ rotate: [0, 10, -10, 0] }}
               transition={{ repeat: Infinity, duration: 2, type: "tween", ease: "easeInOut" }}
@@ -333,6 +183,13 @@ const handleSubmit = (e) => {
                   {file ? "Processing file..." : "Thinking..."}
                 </p>
               </motion.div>
+            )}
+
+            {/* Display error if present */}
+            {error && (
+                <div className="p-3 bg-red-100 text-red-700 border border-red-300 rounded-xl">
+                    <strong>Error:</strong> {error}
+                </div>
             )}
           </AnimatePresence>
           <div ref={chatEndRef} />
