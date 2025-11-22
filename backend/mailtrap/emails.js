@@ -100,7 +100,7 @@ sgMail.setApiKey(process.env.SENDGRID_API_KEY);
 export const sendVerificationEmail = async (email, verificationToken) => {
   const msg = {
     to: email,
-    from: `"${SENDER_NAME}" <${SENDER_EMAIL}>`,
+    from: process.env.SENDGRID_VERIFIED_SENDER,
     subject: "Verify your email",
     html: VERIFICATION_EMAIL_TEMPLATE.replace("{verificationCode}", verificationToken),
   };
