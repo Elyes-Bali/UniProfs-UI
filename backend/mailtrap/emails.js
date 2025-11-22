@@ -84,7 +84,7 @@
 // 		throw new Error(`Error sending password reset success email: ${error}`);
 // 	}
 // };
-
+import sgMail from "@sendgrid/mail";
 import {
   PASSWORD_RESET_REQUEST_TEMPLATE,
   PASSWORD_RESET_SUCCESS_TEMPLATE,
@@ -94,22 +94,39 @@ import {
 import { transporter } from "./transporter.js";
 
 const SENDER_NAME = "UniProfs AI";
-const SENDER_EMAIL = "heallinkteam@gmail.com"; // Mailtrap sender
-
+// const SENDER_EMAIL = "heallinkteam@gmail.com"; // Mailtrap sender
+const SENDER_EMAIL = process.env.SENDGRID_VERIFIED_SENDER; 
+sgMail.setApiKey(process.env.SENDGRID_API_KEY);
 export const sendVerificationEmail = async (email, verificationToken) => {
+  const msg = {
+    to: email,
+    from: `"${SENDER_NAME}" <${SENDER_EMAIL}>`,
+    subject: "Verify your email",
+    html: VERIFICATION_EMAIL_TEMPLATE.replace("{verificationCode}", verificationToken),
+  };
+
   try {
-    await transporter.sendMail({
-      from: `"${SENDER_NAME}" <${SENDER_EMAIL}>`,
-      to: email,
-      subject: "Verify your email",
-      html: VERIFICATION_EMAIL_TEMPLATE.replace("{verificationCode}", verificationToken),
-    });
-    console.log("Verification email sent successfully!");
+    await sgMail.send(msg);
+    console.log("Verification email sent successfully via SendGrid!");
   } catch (error) {
-    console.error("Error sending verification email:", error);
+    console.error("Error sending verification email via SendGrid:", error);
     throw new Error(`Error sending verification email: ${error}`);
   }
 };
+// export const sendVerificationEmail = async (email, verificationToken) => {
+//   try {
+//     await transporter.sendMail({
+//       from: `"${SENDER_NAME}" <${SENDER_EMAIL}>`,
+//       to: email,
+//       subject: "Verify your email",
+//       html: VERIFICATION_EMAIL_TEMPLATE.replace("{verificationCode}", verificationToken),
+//     });
+//     console.log("Verification email sent successfully!");
+//   } catch (error) {
+//     console.error("Error sending verification email:", error);
+//     throw new Error(`Error sending verification email: ${error}`);
+//   }
+// };
 
 export const sendWelcomeEmail = async (email, name) => {
   try {
