@@ -392,18 +392,19 @@ app.use("/api/payment", paymentRoutes);
 
 
 
+const frontendRouter = express.Router();
 
+// Define the static file serving middleware on the router
+frontendRouter.use(express.static(path.join(__dirname, "/frontend/dist")));
 
-
+frontendRouter.get('/*', (req, res) => {
+    res.sendFile(path.resolve(__dirname, "frontend", "dist", "index.html"));
+});
 
 
 // ----------------- Production Frontend -----------------
 if (process.env.NODE_ENV === "production") {
-  app.use(express.static(path.join(__dirname, "/frontend/dist")));
-
-  app.get(/(.*)/, (req, res) => {
-    res.sendFile(path.resolve(__dirname, "frontend", "dist", "index.html"));
-  });
+    app.use(frontendRouter);
 }
 
 app.listen(PORT, () => {
