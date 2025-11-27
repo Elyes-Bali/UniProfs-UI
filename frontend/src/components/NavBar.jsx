@@ -191,7 +191,7 @@ const NavBar = () => {
         ) : (
           <nav className="hidden md:flex space-x-10">
             <a
-              href="/AllUsers"
+              href="/dashboard"
               className="text-gray-600 hover:text-indigo-700 font-semibold transition-colors relative group py-1"
             >
               Dashboard
